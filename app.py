@@ -4,6 +4,9 @@ import numpy as np
 import face_recognition
 import os
 
+# =========================
+# PAGE SETTINGS
+# =========================
 st.set_page_config(
     page_title="Face Recognition App",
     layout="centered"
@@ -12,8 +15,15 @@ st.set_page_config(
 st.title("Live Face Recognition")
 st.write("Detect faces and display the person's name.")
 
-# Main folder
+# =========================
+# KNOWN FACES FOLDER
+# =========================
 KNOWN_FACES_DIR = "known_faces"
+
+# Check folder exists
+if not os.path.exists(KNOWN_FACES_DIR):
+    st.error("Folder 'known_faces' not found.")
+    st.stop()
 
 known_encodings = []
 known_names = []
@@ -21,40 +31,39 @@ known_names = []
 # =========================
 # LOAD KNOWN FACES
 # =========================
-for person_name in os.listdir(KNOWN_FACES_DIR):
+for filename in os.listdir(KNOWN_FACES_DIR):
 
-    person_folder = os.path.join(KNOWN_FACES_DIR, person_name)
+    if filename.lower().endswith((".jpg", ".jpeg", ".png")):
 
-    # Make sure it is a folder
-    if os.path.isdir(person_folder):
+        image_path = os.path.join(KNOWN_FACES_DIR, filename)
 
-        for filename in os.listdir(person_folder):
+        try:
+            image = face_recognition.load_image_file(image_path)
 
-            if filename.lower().endswith((".jpg", ".jpeg", ".png")):
+            encodings = face_recognition.face_encodings(image)
 
-                image_path = os.path.join(person_folder, filename)
+            if len(encodings) > 0:
 
-                try:
-                    image = face_recognition.load_image_file(image_path)
+                known_encodings.append(encodings[0])
 
-                    encodings = face_recognition.face_encodings(image)
+                # File name becomes person's name
+                name = os.path.splitext(filename)[0]
 
-                    if len(encodings) > 0:
-                        known_encodings.append(encodings[0])
-                        known_names.append(person_name)
+                known_names.append(name)
 
-                except Exception as e:
-                    st.warning(f"Could not load {image_path}")
+        except Exception as e:
+            st.warning(f"Could not load {filename}")
 
 # =========================
-# CAMERA INPUT
+# CAMERA
 # =========================
-camera_image = st.camera_input("Open Camera")
+camera_image = st.camera_input("Take a picture")
 
 if camera_image is not None:
 
-    # Convert image
+    # Convert uploaded image
     bytes_data = camera_image.getvalue()
+
     np_array = np.frombuffer(bytes_data, np.uint8)
 
     img = cv2.imdecode(np_array, cv2.IMREAD_COLOR)
@@ -90,7 +99,6 @@ if camera_image is not None:
 
             best_match_index = np.argmin(distances)
 
-            # Smaller number = stricter recognition
             if distances[best_match_index] < 0.50:
                 name = known_names[best_match_index]
 
@@ -114,7 +122,7 @@ if camera_image is not None:
             2
         )
 
-    # Convert to RGB for Streamlit
+    # Convert image for Streamlit
     img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
     st.image(
